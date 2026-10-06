@@ -678,3 +678,32 @@ button { cursor: pointer; }
         align-content: start;
     }
 }
+
+
+.visually-hidden-file {
+    position: absolute !important;
+    width: 1px !important;
+    height: 1px !important;
+    padding: 0 !important;
+    margin: -1px !important;
+    overflow: hidden !important;
+    clip: rect(0 0 0 0) !important;
+    white-space: nowrap !important;
+    border: 0 !important;
+}
+
+.import-file-field {
+    align-content: start;
+}
+
+.import-file-button {
+    width: 100%;
+    justify-content: center;
+}
+
+.import-file-name {
+    margin-top: 2px;
+    color: var(--muted);
+    font-size: 12px;
+    word-break: break-word;
+}
