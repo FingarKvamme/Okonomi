@@ -78,9 +78,14 @@ jobs:
         run: |
           set -euo pipefail
 
-          REMOTE_DIR="${SFTP_REMOTE_PATH#/}"
-          REMOTE_DIR="${REMOTE_DIR%/}"
-          : "${REMOTE_DIR:?SFTP_REMOTE_PATH resolves to an empty path}"
+          WEB_PATH="${SFTP_REMOTE_PATH}"
+          if [[ "${WEB_PATH}" == http://* || "${WEB_PATH}" == https://* ]]; then
+            WEB_PATH="${WEB_PATH#*://}"
+            WEB_PATH="${WEB_PATH#*/}"
+          fi
+          WEB_PATH="${WEB_PATH#/}"
+          WEB_PATH="${WEB_PATH%/}"
+          : "${WEB_PATH:?SFTP_REMOTE_PATH does not contain a target folder}"
 
           HOST="$(printf '%s' "${SFTP_HOST}" | tr -d '\r\n\t ')"
           HOST="${HOST#\"}"
@@ -112,15 +117,36 @@ jobs:
 
           export SSHPASS="${SFTP_PASSWORD}"
           sshpass -e sftp \
+            -b - \
             -oBatchMode=no \
             -oStrictHostKeyChecking=accept-new \
             -oConnectTimeout=20 \
             -P "${PORT}" \
             "${SFTP_USER}@${HOST}" <<SFTP
-          -mkdir "${REMOTE_DIR}"
-          cd "${REMOTE_DIR}"
+          -rm api.php
+          -rm bootstrap.php
+          -rm config.generated.php
+          -rm index.php
+          -rm .htaccess
+          -rm assets/app.css
+          -rm assets/app.js
+          -rmdir assets
+          cd ../../httpd.www
+          -mkdir "${WEB_PATH}"
+          cd "${WEB_PATH}"
           lcd public
           put -r *
           put .htaccess
           bye
           SFTP
+
+      - name: Verify public page
+        run: |
+          set -euo pipefail
+          STATUS="$(curl --silent --show-error --retry 3 --retry-delay 2 \
+            --connect-timeout 10 --max-time 60 \
+            --output /tmp/okonomi.html --write-out "%{http_code}" \
+            "https://fundamentaleiendom.no/%C3%98konomi/")"
+          echo "HTTP status: ${STATUS}"
+          test "${STATUS}" = "200"
+          grep -q "<title>Økonomi</title>" /tmp/okonomi.html
