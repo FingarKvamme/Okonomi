@@ -28,16 +28,16 @@ jobs:
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          OKONOMI_SFTP_REMOTE_PATH: ${{ secrets.OKONOMI_SFTP_REMOTE_PATH }}
+          SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
         run: |
           set -euo pipefail
           : "${SFTP_USER:?Missing SFTP_USER}"
           : "${SFTP_HOST:?Missing SFTP_HOST}"
           : "${SFTP_PASSWORD:?Missing SFTP_PASSWORD}"
-          : "${OKONOMI_SFTP_REMOTE_PATH:?Missing OKONOMI_SFTP_REMOTE_PATH}"
+          : "${SFTP_REMOTE_PATH:?Missing SFTP_REMOTE_PATH}"
 
-          if [[ "${OKONOMI_SFTP_REMOTE_PATH}" == *"://"* ]]; then
-            echo "OKONOMI_SFTP_REMOTE_PATH must be an SFTP path, not a URL." >&2
+          if [[ "${SFTP_REMOTE_PATH}" == *"://"* ]]; then
+            echo "SFTP_REMOTE_PATH must be an SFTP path, not a URL." >&2
             exit 1
           fi
 
@@ -80,7 +80,7 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_PORT: ${{ secrets.SFTP_PORT || vars.SFTP_PORT }}
-          OKONOMI_SFTP_REMOTE_PATH: ${{ secrets.OKONOMI_SFTP_REMOTE_PATH }}
+          SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
         run: |
           set -euo pipefail
 
@@ -107,8 +107,7 @@ jobs:
             PORT="${BASH_REMATCH[2]}"
           fi
 
-          TARGET="${OKONOMI_SFTP_REMOTE_PATH#/}"
-          TARGET="${TARGET%/}"
+          TARGET="${SFTP_REMOTE_PATH%/}"
 
           export SSHPASS="${SFTP_PASSWORD}"
           sshpass -e sftp \
