@@ -3,6 +3,9 @@ name: Deploy Økonomi
 on:
   push:
     branches: [main]
+    paths:
+      - 'public/**'
+      - '.github/workflows/deploy.yml'
   workflow_dispatch:
 
 permissions:
@@ -71,24 +74,13 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
-          SFTP_PORT: ${{ secrets.SFTP_PORT || vars.SFTP_PORT }}
         run: |
           set -euo pipefail
-          PORT="${SFTP_PORT:-22}"
-          REMOTE_BASE="${SFTP_REMOTE_PATH%/}"
-          REMOTE_DIR="${REMOTE_BASE}/Økonomi"
-
-          case "${REMOTE_DIR}" in
-            */Økonomi) ;;
-            *) echo "Refusing deploy: unexpected remote directory: ${REMOTE_DIR}" >&2; exit 1 ;;
-          esac
-
-          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${SFTP_HOST}:${PORT}" <<EOF
+          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${SFTP_HOST}" <<LFTP
           set cmd:fail-exit yes
           set net:max-retries 2
           set net:timeout 20
           set sftp:auto-confirm yes
-          mkdir -p "${REMOTE_DIR}"
-          mirror -R --delete --verbose public/ "${REMOTE_DIR}/"
+          mirror --reverse --delete --verbose --parallel=4 ./public/ "${SFTP_REMOTE_PATH}"
           bye
-          EOF
+          LFTP
