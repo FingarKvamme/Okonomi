@@ -20,7 +20,9 @@ $clientConfig = [
     <link rel="stylesheet" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.css?v=1">
     <script>window.APP_CONFIG = <?= json_encode($clientConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;</script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
-    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.js?v=1" defer></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
+    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.js?v=2" defer></script>
+    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/import.js?v=1" defer></script>
 </head>
 <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -157,6 +159,62 @@ $clientConfig = [
                     <div class="button-row">
                         <button id="save-snapshot-draft" class="button secondary" type="button">Lagre utkast</button>
                         <button id="save-snapshot-complete" class="button primary" type="button">Lagre komplett snapshot</button>
+                    </div>
+                </article>
+
+                <article class="panel import-panel">
+                    <div class="panel-heading">
+                        <div>
+                            <p class="eyebrow">Excel-import</p>
+                            <h2>Importer historikk fra regneark</h2>
+                            <p class="muted">Første kolonne må være dato eller måned. De øvrige kolonnene tolkes som konkrete eiendeler, gjeldsposter, inntekter eller utgifter.</p>
+                        </div>
+                    </div>
+
+                    <div class="import-controls">
+                        <label class="field">
+                            <span>Hva inneholder arket?</span>
+                            <select id="import-kind">
+                                <option value="asset">Eiendeler</option>
+                                <option value="liability">Gjeld</option>
+                                <option value="income">Inntekter</option>
+                                <option value="expense">Utgifter</option>
+                            </select>
+                        </label>
+                        <label class="field">
+                            <span>Excel-fil</span>
+                            <input id="import-file" type="file" accept=".xlsx,.xls,.csv">
+                        </label>
+                        <label class="field">
+                            <span>Ark</span>
+                            <select id="import-sheet" disabled></select>
+                        </label>
+                    </div>
+
+                    <div id="import-preview" hidden>
+                        <div class="import-range">
+                            <label class="field">
+                                <span>Fra dato</span>
+                                <input id="import-from" type="date">
+                            </label>
+                            <label class="field">
+                                <span>Til dato</span>
+                                <input id="import-to" type="date">
+                            </label>
+                            <div class="import-summary" id="import-summary"></div>
+                        </div>
+
+                        <div class="import-help">
+                            <strong>Kontroller kolonnene før import.</strong>
+                            <span>Eksisterende poster gjenbrukes automatisk. Nye poster opprettes i valgt kategori.</span>
+                        </div>
+
+                        <div id="import-mapping" class="import-mapping"></div>
+                        <div id="import-sample" class="import-sample"></div>
+
+                        <div class="button-row">
+                            <button id="import-submit" class="button primary" type="button">Importer valgte data</button>
+                        </div>
                     </div>
                 </article>
 
