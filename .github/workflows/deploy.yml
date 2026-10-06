@@ -82,13 +82,22 @@ jobs:
           REMOTE_DIR="${REMOTE_DIR%/}"
           : "${REMOTE_DIR:?SFTP_REMOTE_PATH resolves to an empty path}"
 
-          HOST="${SFTP_HOST#sftp://}"
+          HOST="$(printf '%s' "${SFTP_HOST}" | tr -d '\r\n\t ')"
+          HOST="${HOST#\"}"
+          HOST="${HOST%\"}"
+          HOST="${HOST#\'}"
+          HOST="${HOST%\'}"
+          HOST="${HOST#SFTP_HOST=}"
+          HOST="${HOST#sftp://}"
           HOST="${HOST#ssh://}"
           HOST="${HOST#https://}"
           HOST="${HOST#http://}"
           HOST="${HOST#ftp://}"
           HOST="${HOST#ftps://}"
           HOST="${HOST%%/*}"
+          HOST="${HOST##*@}"
+          HOST="${HOST%%\?*}"
+          HOST="${HOST%%\#*}"
 
           PORT="${SFTP_PORT:-22}"
           if [[ "${HOST}" =~ ^(.+):([0-9]+)$ ]]; then
@@ -96,6 +105,10 @@ jobs:
             PORT="${BASH_REMATCH[2]}"
           fi
           : "${HOST:?SFTP_HOST resolves to an empty host}"
+          if [[ ! "${HOST}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+            echo "SFTP_HOST could not be normalized to a valid hostname." >&2
+            exit 1
+          fi
 
           export SSHPASS="${SFTP_PASSWORD}"
           sshpass -e sftp \
