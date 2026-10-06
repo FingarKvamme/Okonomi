@@ -18,22 +18,28 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Validate required deployment secrets
+      - name: Validate deployment configuration
         env:
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
+          OKONOMI_SFTP_REMOTE_PATH: ${{ secrets.OKONOMI_SFTP_REMOTE_PATH }}
         run: |
           set -euo pipefail
           : "${SFTP_USER:?Missing SFTP_USER}"
           : "${SFTP_HOST:?Missing SFTP_HOST}"
           : "${SFTP_PASSWORD:?Missing SFTP_PASSWORD}"
-          : "${SFTP_REMOTE_PATH:?Missing SFTP_REMOTE_PATH}"
+          : "${OKONOMI_SFTP_REMOTE_PATH:?Missing OKONOMI_SFTP_REMOTE_PATH}"
+
+          if [[ "${OKONOMI_SFTP_REMOTE_PATH}" == *"://"* ]]; then
+            echo "OKONOMI_SFTP_REMOTE_PATH must be an SFTP path, not a URL." >&2
+            exit 1
+          fi
 
       - name: Generate server configuration
         env:
@@ -65,27 +71,18 @@ jobs:
 
       - name: Install SFTP client
         run: |
-          sudo apt-get update
-          sudo apt-get install -y sshpass
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq sshpass
 
       - name: Deploy public directory over SFTP
         env:
           SFTP_USER: ${{ secrets.SFTP_USER }}
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
-          SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
           SFTP_PORT: ${{ secrets.SFTP_PORT || vars.SFTP_PORT }}
+          OKONOMI_SFTP_REMOTE_PATH: ${{ secrets.OKONOMI_SFTP_REMOTE_PATH }}
         run: |
           set -euo pipefail
-
-          WEB_PATH="${SFTP_REMOTE_PATH}"
-          if [[ "${WEB_PATH}" == http://* || "${WEB_PATH}" == https://* ]]; then
-            WEB_PATH="${WEB_PATH#*://}"
-            WEB_PATH="${WEB_PATH#*/}"
-          fi
-          WEB_PATH="${WEB_PATH#/}"
-          WEB_PATH="${WEB_PATH%/}"
-          : "${WEB_PATH:?SFTP_REMOTE_PATH does not contain a target folder}"
 
           HOST="$(printf '%s' "${SFTP_HOST}" | tr -d '\r\n\t ')"
           HOST="${HOST#\"}"
@@ -109,11 +106,9 @@ jobs:
             HOST="${BASH_REMATCH[1]}"
             PORT="${BASH_REMATCH[2]}"
           fi
-          : "${HOST:?SFTP_HOST resolves to an empty host}"
-          if [[ ! "${HOST}" =~ ^[A-Za-z0-9._-]+$ ]]; then
-            echo "SFTP_HOST could not be normalized to a valid hostname." >&2
-            exit 1
-          fi
+
+          TARGET="${OKONOMI_SFTP_REMOTE_PATH#/}"
+          TARGET="${TARGET%/}"
 
           export SSHPASS="${SFTP_PASSWORD}"
           sshpass -e sftp \
@@ -123,17 +118,8 @@ jobs:
             -oConnectTimeout=20 \
             -P "${PORT}" \
             "${SFTP_USER}@${HOST}" <<SFTP
-          -rm api.php
-          -rm bootstrap.php
-          -rm config.generated.php
-          -rm index.php
-          -rm .htaccess
-          -rm assets/app.css
-          -rm assets/app.js
-          -rmdir assets
-          cd ../../httpd.www
-          -mkdir "${WEB_PATH}"
-          cd "${WEB_PATH}"
+          -mkdir "${TARGET}"
+          cd "${TARGET}"
           lcd public
           put -r *
           put .htaccess
