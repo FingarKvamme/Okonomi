@@ -224,6 +224,7 @@
         }
 
         try {
+            await loadReferenceData();
             const buffer = await file.arrayBuffer();
             state.workbook = XLSX.read(buffer, {
                 type: 'array',
@@ -576,22 +577,20 @@
         }[char]));
     }
 
-    async function init() {
+    function init() {
         if (!$('#import-file')) return;
 
-        try {
-            await loadReferenceData();
-        } catch (_) {
-            return;
-        }
-
-        $('#import-file-button').addEventListener('click', () => $('#import-file').click());
         $('#import-file').addEventListener('change', onFileSelected);
         $('#import-sheet').addEventListener('change', parseSelectedSheet);
-        $('#import-kind').addEventListener('change', () => {
+        $('#import-kind').addEventListener('change', async () => {
             if (!state.rows.length) return;
-            renderMapping();
-            updatePreview();
+            try {
+                await loadReferenceData();
+                renderMapping();
+                updatePreview();
+            } catch (error) {
+                toast(error.message, 'error');
+            }
         });
         $('#import-from').addEventListener('change', updatePreview);
         $('#import-to').addEventListener('change', updatePreview);
