@@ -80,7 +80,16 @@ jobs:
           REMOTE_DIR="${REMOTE_DIR%/}"
           : "${REMOTE_DIR:?SFTP_REMOTE_PATH resolves to an empty path}"
 
-          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${SFTP_HOST}" <<LFTP
+          HOST="${SFTP_HOST#sftp://}"
+          HOST="${HOST#ssh://}"
+          HOST="${HOST#https://}"
+          HOST="${HOST#http://}"
+          HOST="${HOST#ftp://}"
+          HOST="${HOST#ftps://}"
+          HOST="${HOST%%/*}"
+          : "${HOST:?SFTP_HOST resolves to an empty host}"
+
+          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${HOST}" <<LFTP
           set cmd:fail-exit yes
           set net:max-retries 2
           set net:timeout 20
