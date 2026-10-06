@@ -23,15 +23,12 @@ Valgfrie secrets dersom webhotellet ikke bruker standardverdiene:
 - `DB_HOST` (standard: `localhost`)
 - `DB_PORT` (standard: `3306`)
 - `DB_USER` (standard: `coiurr9fr_db1394934`)
-- `SFTP_PORT` (standard: `22`)
 
 Databasen heter `coiurr9fr_db1394934`. Databasepassordet settes ved deploy til samme verdi som `SFTP_PASSWORD`.
 
 ## Deploy
 
-Push til `main` kjører GitHub Actions og speiler `public/` til:
-
-`${SFTP_REMOTE_PATH}/Økonomi/`
+Push til `main` kjører GitHub Actions og speiler `public/` direkte til katalogen som ligger i `SFTP_REMOTE_PATH`. Secret-en skal derfor peke på katalogen som svarer til `https://fundamentaleiendom.no/Økonomi/`.
 
 Workflowen lager `public/config.generated.php` under deploy. Denne filen committes aldri til repoet.
 
