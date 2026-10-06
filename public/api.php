@@ -338,6 +338,231 @@ try {
         json_response(['ok' => true]);
     }
 
+    if ($action === 'importData' && $method === 'POST') {
+        require_csrf();
+        $data = request_json();
+        $kind = (string)($data['kind'] ?? '');
+        $columns = is_array($data['columns'] ?? null) ? $data['columns'] : [];
+        $rows = is_array($data['rows'] ?? null) ? $data['rows'] : [];
+
+        if (!valid_kind($kind)) {
+            json_response(['error' => 'Ugyldig importtype.'], 422);
+        }
+        if (count($columns) < 1 || count($columns) > 120) {
+            json_response(['error' => 'Importen må inneholde mellom 1 og 120 kolonner.'], 422);
+        }
+        if (count($rows) < 1 || count($rows) > 3000) {
+            json_response(['error' => 'Importen må inneholde mellom 1 og 3000 daterte rader.'], 422);
+        }
+
+        $pdo->beginTransaction();
+        try {
+            $categoryCheck = $pdo->prepare(
+                "SELECT id FROM okonomi_categories
+                 WHERE id = ? AND user_id = ? AND kind = ? AND active = 1"
+            );
+            $existingItem = $pdo->prepare(
+                "SELECT id FROM okonomi_items
+                 WHERE user_id = ? AND kind = ? AND name = ?
+                 LIMIT 1"
+            );
+            $insertItem = $pdo->prepare(
+                "INSERT INTO okonomi_items (user_id, category_id, kind, name)
+                 VALUES (?, ?, ?, ?)"
+            );
+
+            $itemMap = [];
+            $itemsCreated = 0;
+
+            foreach ($columns as $column) {
+                if (!is_array($column)) {
+                    json_response(['error' => 'Ugyldig kolonnedefinisjon.'], 422);
+                }
+
+                $key = trim((string)($column['key'] ?? ''));
+                $name = trim((string)($column['name'] ?? ''));
+                $categoryId = (int)($column['categoryId'] ?? 0);
+
+                if (
+                    !preg_match('/^[A-Za-z0-9_-]{1,64}$/', $key) ||
+                    $name === '' ||
+                    mb_strlen($name) > 160 ||
+                    $categoryId < 1
+                ) {
+                    json_response(['error' => 'En importkolonne har ugyldig navn eller kategori.'], 422);
+                }
+
+                $categoryCheck->execute([$categoryId, $userId, $kind]);
+                if (!$categoryCheck->fetchColumn()) {
+                    json_response(['error' => 'En valgt kategori finnes ikke eller har feil type.'], 422);
+                }
+
+                $existingItem->execute([$userId, $kind, $name]);
+                $itemId = (int)($existingItem->fetchColumn() ?: 0);
+
+                if ($itemId < 1) {
+                    $insertItem->execute([$userId, $categoryId, $kind, $name]);
+                    $itemId = (int)$pdo->lastInsertId();
+                    $itemsCreated++;
+                }
+
+                $itemMap[$key] = $itemId;
+            }
+
+            $valuesImported = 0;
+            $duplicatesSkipped = 0;
+            $rowsProcessed = 0;
+            $snapshotsCompleted = 0;
+
+            if (in_array($kind, ['asset', 'liability'], true)) {
+                $snapshotUpsert = $pdo->prepare(
+                    "INSERT INTO okonomi_balance_snapshots
+                        (user_id, snapshot_date, is_complete, note)
+                     VALUES (?, ?, 0, 'Excel-import')
+                     ON DUPLICATE KEY UPDATE snapshot_date = VALUES(snapshot_date)"
+                );
+                $snapshotIdQuery = $pdo->prepare(
+                    "SELECT id FROM okonomi_balance_snapshots
+                     WHERE user_id = ? AND snapshot_date = ?"
+                );
+                $valueUpsert = $pdo->prepare(
+                    "INSERT INTO okonomi_balance_values (snapshot_id, item_id, amount_cents)
+                     VALUES (?, ?, ?)
+                     ON DUPLICATE KEY UPDATE amount_cents = VALUES(amount_cents)"
+                );
+                $affectedSnapshots = [];
+
+                foreach ($rows as $row) {
+                    if (!is_array($row)) continue;
+                    $date = (string)($row['date'] ?? '');
+                    $values = is_array($row['values'] ?? null) ? $row['values'] : [];
+                    if (!valid_date($date)) {
+                        json_response(['error' => 'Importen inneholder en ugyldig dato.'], 422);
+                    }
+
+                    $normalizedValues = [];
+                    foreach ($values as $key => $amount) {
+                        if (!isset($itemMap[$key]) || $amount === null || $amount === '') continue;
+                        try {
+                            $normalizedValues[$key] = to_cents($amount);
+                        } catch (InvalidArgumentException $e) {
+                            json_response(['error' => 'Importen inneholder et ugyldig beløp.'], 422);
+                        }
+                    }
+                    if (!$normalizedValues) continue;
+
+                    $snapshotUpsert->execute([$userId, $date]);
+                    $snapshotIdQuery->execute([$userId, $date]);
+                    $snapshotId = (int)$snapshotIdQuery->fetchColumn();
+                    if ($snapshotId < 1) {
+                        throw new RuntimeException('Kunne ikke opprette snapshot for import.');
+                    }
+
+                    foreach ($normalizedValues as $key => $cents) {
+                        $valueUpsert->execute([$snapshotId, $itemMap[$key], $cents]);
+                        $valuesImported++;
+                    }
+
+                    $affectedSnapshots[$snapshotId] = true;
+                    $rowsProcessed++;
+                }
+
+                if ($affectedSnapshots) {
+                    $activeCountStmt = $pdo->prepare(
+                        "SELECT COUNT(*)
+                         FROM okonomi_items
+                         WHERE user_id = ? AND active = 1
+                           AND kind IN ('asset','liability')"
+                    );
+                    $activeCountStmt->execute([$userId]);
+                    $activeCount = (int)$activeCountStmt->fetchColumn();
+
+                    $filledCountStmt = $pdo->prepare(
+                        "SELECT COUNT(*)
+                         FROM okonomi_balance_values bv
+                         JOIN okonomi_items i ON i.id = bv.item_id
+                         WHERE bv.snapshot_id = ?
+                           AND i.user_id = ?
+                           AND i.active = 1
+                           AND i.kind IN ('asset','liability')"
+                    );
+                    $setCompleteStmt = $pdo->prepare(
+                        "UPDATE okonomi_balance_snapshots
+                         SET is_complete = ?
+                         WHERE id = ? AND user_id = ?"
+                    );
+
+                    foreach (array_keys($affectedSnapshots) as $snapshotId) {
+                        $filledCountStmt->execute([(int)$snapshotId, $userId]);
+                        $filledCount = (int)$filledCountStmt->fetchColumn();
+                        $complete = $activeCount > 0 && $filledCount === $activeCount;
+                        $setCompleteStmt->execute([$complete ? 1 : 0, (int)$snapshotId, $userId]);
+                        if ($complete) $snapshotsCompleted++;
+                    }
+                }
+            } else {
+                $duplicateCheck = $pdo->prepare(
+                    "SELECT id FROM okonomi_flow_entries
+                     WHERE user_id = ? AND item_id = ? AND entry_date = ?
+                       AND amount_cents = ? AND note = 'Excel-import'
+                     LIMIT 1"
+                );
+                $insertFlow = $pdo->prepare(
+                    "INSERT INTO okonomi_flow_entries
+                        (user_id, item_id, entry_date, amount_cents, note)
+                     VALUES (?, ?, ?, ?, 'Excel-import')"
+                );
+
+                foreach ($rows as $row) {
+                    if (!is_array($row)) continue;
+                    $date = (string)($row['date'] ?? '');
+                    $values = is_array($row['values'] ?? null) ? $row['values'] : [];
+                    if (!valid_date($date)) {
+                        json_response(['error' => 'Importen inneholder en ugyldig dato.'], 422);
+                    }
+
+                    $rowHadValue = false;
+                    foreach ($values as $key => $amount) {
+                        if (!isset($itemMap[$key]) || $amount === null || $amount === '') continue;
+                        try {
+                            $cents = to_cents($amount);
+                        } catch (InvalidArgumentException $e) {
+                            json_response(['error' => 'Importen inneholder et ugyldig beløp.'], 422);
+                        }
+
+                        $duplicateCheck->execute([$userId, $itemMap[$key], $date, $cents]);
+                        if ($duplicateCheck->fetchColumn()) {
+                            $duplicatesSkipped++;
+                            $rowHadValue = true;
+                            continue;
+                        }
+
+                        $insertFlow->execute([$userId, $itemMap[$key], $date, $cents]);
+                        $valuesImported++;
+                        $rowHadValue = true;
+                    }
+
+                    if ($rowHadValue) $rowsProcessed++;
+                }
+            }
+
+            $pdo->commit();
+
+            json_response([
+                'ok' => true,
+                'kind' => $kind,
+                'itemsCreated' => $itemsCreated,
+                'rowsProcessed' => $rowsProcessed,
+                'valuesImported' => $valuesImported,
+                'duplicatesSkipped' => $duplicatesSkipped,
+                'snapshotsCompleted' => $snapshotsCompleted,
+            ]);
+        } catch (Throwable $e) {
+            if ($pdo->inTransaction()) $pdo->rollBack();
+            throw $e;
+        }
+    }
+
     if ($action === 'summary' && $method === 'GET') {
         $snapshotStmt = $pdo->prepare(
             "SELECT id, snapshot_date
