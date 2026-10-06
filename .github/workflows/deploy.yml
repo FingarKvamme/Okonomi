@@ -23,7 +23,7 @@ jobs:
         uses: actions/checkout@v4
 
       - name: Install lftp
-        run: sudo apt-get update && sudo apt-get install -y lftp
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq lftp
 
       - name: Deploy public directory
         env:
@@ -38,10 +38,31 @@ jobs:
           test -n "$SFTP_USER"
           test -n "$SFTP_PASSWORD"
           test -n "$SFTP_REMOTE_PATH"
-          lftp -u "$SFTP_USER","$SFTP_PASSWORD" "sftp://$SFTP_HOST" <<LFTP
+
+          # SFTP-brukeren er chrootet. En verdi som "/Økonomi" må derfor
+          # tolkes relativt til SFTP-roten, ikke som en absolutt serversti.
+          REMOTE_PATH="${SFTP_REMOTE_PATH#/}"
+
+          lftp -u "$SFTP_USER","$SFTP_PASSWORD" "sftp://$SFTP_HOST" <<EOF
           set sftp:auto-confirm yes
           set net:max-retries 2
           set net:timeout 20
-          mirror --reverse --delete --verbose --parallel=4 ./public/ "$SFTP_REMOTE_PATH"
+          mkdir -p "$REMOTE_PATH"
+          mirror -R \
+            --verbose \
+            --parallel=4 \
+            --delete \
+            ./public/ "$REMOTE_PATH"
           bye
-          LFTP
+          EOF
+
+      - name: Verify public page
+        shell: bash
+        run: |
+          status="$(curl --silent --show-error --retry 3 --retry-delay 2 \
+            --connect-timeout 10 --max-time 60 \
+            --output /tmp/okonomi.html --write-out "%{http_code}" \
+            "https://fundamentaleiendom.no/%C3%98konomi/" || true)"
+          echo "HTTP status: $status"
+          test "$status" = "200"
+          grep -q "<title>Økonomi</title>" /tmp/okonomi.html
