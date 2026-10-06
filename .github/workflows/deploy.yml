@@ -115,7 +115,6 @@ jobs:
           set sftp:auto-confirm yes
           set net:max-retries 2
           set net:timeout 20
-          mkdir -p "${TARGET}"
           mirror -R --verbose --parallel=4 --delete ./public/ "${TARGET}"
           bye
           LFTP
