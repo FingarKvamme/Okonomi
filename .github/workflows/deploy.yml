@@ -1,0 +1,94 @@
+name: Deploy Økonomi
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-okonomi
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate required deployment secrets
+        env:
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
+        run: |
+          set -euo pipefail
+          : "${SFTP_USER:?Missing SFTP_USER}"
+          : "${SFTP_HOST:?Missing SFTP_HOST}"
+          : "${SFTP_PASSWORD:?Missing SFTP_PASSWORD}"
+          : "${SFTP_REMOTE_PATH:?Missing SFTP_REMOTE_PATH}"
+
+      - name: Generate server configuration
+        env:
+          GOOGLE_CLIENT_ID: ${{ secrets.GOOGLE_CLIENT_ID || vars.GOOGLE_CLIENT_ID }}
+          DB_HOST: ${{ secrets.DB_HOST || vars.DB_HOST }}
+          DB_PORT: ${{ secrets.DB_PORT || vars.DB_PORT }}
+          DB_USER: ${{ secrets.DB_USER || vars.DB_USER }}
+          DB_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+        run: |
+          php -r '
+            $config = [
+              "google_client_id" => getenv("GOOGLE_CLIENT_ID") ?: "",
+              "db_host" => getenv("DB_HOST") ?: "localhost",
+              "db_port" => (int)(getenv("DB_PORT") ?: "3306"),
+              "db_name" => "coiurr9fr_db1394934",
+              "db_user" => getenv("DB_USER") ?: "coiurr9fr_db1394934",
+              "db_password" => getenv("DB_PASSWORD") ?: "",
+            ];
+            file_put_contents(
+              "public/config.generated.php",
+              "<?php\ndeclare(strict_types=1);\nreturn " . var_export($config, true) . ";\n"
+            );
+          '
+
+      - name: Validate PHP syntax
+        run: |
+          set -euo pipefail
+          find public -name '*.php' -print0 | xargs -0 -n1 php -l
+
+      - name: Install SFTP client
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y lftp
+
+      - name: Deploy public directory over SFTP
+        env:
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT || vars.SFTP_PORT }}
+        run: |
+          set -euo pipefail
+          PORT="${SFTP_PORT:-22}"
+          REMOTE_BASE="${SFTP_REMOTE_PATH%/}"
+          REMOTE_DIR="${REMOTE_BASE}/Økonomi"
+
+          case "${REMOTE_DIR}" in
+            */Økonomi) ;;
+            *) echo "Refusing deploy: unexpected remote directory: ${REMOTE_DIR}" >&2; exit 1 ;;
+          esac
+
+          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${SFTP_HOST}:${PORT}" <<EOF
+          set cmd:fail-exit yes
+          set net:max-retries 2
+          set net:timeout 20
+          set sftp:auto-confirm yes
+          mkdir -p "${REMOTE_DIR}"
+          mirror -R --delete --verbose public/ "${REMOTE_DIR}/"
+          bye
+          EOF
