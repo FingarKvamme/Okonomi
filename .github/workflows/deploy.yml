@@ -52,7 +52,7 @@ jobs:
           php -r '
             $config = [
               "google_client_id" => getenv("GOOGLE_CLIENT_ID") ?: "",
-              "db_host" => getenv("DB_HOST") ?: "localhost",
+              "db_host" => getenv("DB_HOST") ?: "mysql.coiurr9fr.service.one",
               "db_port" => (int)(getenv("DB_PORT") ?: "3306"),
               "db_name" => "coiurr9fr_db1394934",
               "db_user" => getenv("DB_USER") ?: "coiurr9fr_db1394934",
@@ -142,6 +142,16 @@ jobs:
               fwrite(STDERR, "Live GOOGLE_CLIENT_ID is missing.\n");
               exit(1);
             }
+          '
+          HEALTH_STATUS="$(curl --silent --show-error --retry 3 --retry-delay 2 \
+            --connect-timeout 10 --max-time 60 \
+            --output /tmp/okonomi-health.json --write-out "%{http_code}" \
+            "https://fundamentaleiendom.no/%C3%98konomi/api.php?action=health")"
+          echo "Health status: ${HEALTH_STATUS}"
+          test "${HEALTH_STATUS}" = "200"
+          php -r '
+            $d = json_decode(file_get_contents("/tmp/okonomi-health.json"), true);
+            exit(is_array($d) && !empty($d["ok"]) ? 0 : 1);
           '
 
 # Redeploy after GOOGLE_CLIENT_ID update
