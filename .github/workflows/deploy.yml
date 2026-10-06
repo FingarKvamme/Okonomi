@@ -129,3 +129,5 @@ jobs:
           echo "HTTP status: ${STATUS}"
           test "${STATUS}" = "200"
           grep -q "<title>Økonomi</title>" /tmp/okonomi.html
+
+# Redeploy after GOOGLE_CLIENT_ID update
