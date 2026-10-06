@@ -76,11 +76,16 @@ jobs:
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
         run: |
           set -euo pipefail
+          REMOTE_DIR="${SFTP_REMOTE_PATH#/}"
+          REMOTE_DIR="${REMOTE_DIR%/}"
+          : "${REMOTE_DIR:?SFTP_REMOTE_PATH resolves to an empty path}"
+
           lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${SFTP_HOST}" <<LFTP
           set cmd:fail-exit yes
           set net:max-retries 2
           set net:timeout 20
           set sftp:auto-confirm yes
-          mirror --reverse --delete --verbose --parallel=4 ./public/ "${SFTP_REMOTE_PATH}"
+          mkdir -p "${REMOTE_DIR}"
+          mirror --reverse --delete --verbose --parallel=4 ./public/ "${REMOTE_DIR}/"
           bye
           LFTP
