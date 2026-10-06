@@ -17,27 +17,64 @@ $clientConfig = [
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7f4">
     <title>Økonomi</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.css?v=2">
+    <link rel="stylesheet" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.css?v=3">
     <script>window.APP_CONFIG = <?= json_encode($clientConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;</script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
-    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.js?v=2" defer></script>
+    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.js?v=3" defer></script>
     <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/import.js?v=2" defer></script>
 </head>
 <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
 
-    <main id="login-view" class="login-shell" hidden>
-        <section class="login-card">
-            <div class="brand-mark">Ø</div>
-            <p class="eyebrow">Privatøkonomi over tid</p>
-            <h1>Økonomi</h1>
-            <p class="lead">Følg formue, gjeld, inntekter og utgifter med konsistente økonomiske øyeblikksbilder.</p>
-            <div id="google-signin" class="google-slot"></div>
-            <p id="login-config-warning" class="setup-warning" hidden>
-                Google-innlogging er ikke konfigurert ennå. Legg <code>GOOGLE_CLIENT_ID</code> i GitHub Secrets og kjør deploy på nytt.
-            </p>
-            <p class="privacy-note">Dataene dine holdes adskilt fra andre brukere og lagres på serverens database.</p>
+    <div id="auth-loading" class="auth-loading" aria-live="polite">
+        <div class="auth-loading-mark">Ø</div>
+        <span>Sjekker innlogging…</span>
+    </div>
+
+    <main id="login-view" class="login-shell login-shell-v2" hidden>
+        <section class="login-frame">
+            <div class="login-brand-panel">
+                <div class="login-brand-top">
+                    <div class="brand-mark login-logo">Ø</div>
+                    <span>Økonomi</span>
+                </div>
+                <div class="login-brand-copy">
+                    <p class="eyebrow">Privatøkonomi</p>
+                    <h1>Full kontroll.<br>Uten regneark.</h1>
+                    <p>Eiendeler, gjeld, inntekter og utgifter samlet i én historikk.</p>
+                </div>
+                <div class="login-brand-footer">
+                    <span>fundamentaleiendom.no</span>
+                </div>
+            </div>
+
+            <div class="login-action-panel">
+                <div class="login-action-inner">
+                    <p class="eyebrow">Velkommen tilbake</p>
+                    <h2>Logg inn</h2>
+                    <p class="login-subtitle">Vi forsøker automatisk innlogging med Google når nettleseren tillater det.</p>
+
+                    <div id="auto-login-status" class="auto-login-status">
+                        <span class="auto-login-spinner" aria-hidden="true"></span>
+                        <span>Prøver automatisk innlogging…</span>
+                    </div>
+
+                    <div id="login-fallback" class="login-fallback" hidden>
+                        <div id="google-signin" class="google-slot"></div>
+                        <p class="login-fallback-note">Hvis automatisk innlogging ikke er tilgjengelig, fortsetter du med Google-knappen.</p>
+                    </div>
+
+                    <p id="login-config-warning" class="setup-warning" hidden>
+                        Google-innlogging er ikke konfigurert på serveren.
+                    </p>
+
+                    <div class="login-privacy">
+                        <span class="login-lock" aria-hidden="true">●</span>
+                        <span>Kun din konto får tilgang til dine økonomidata.</span>
+                    </div>
+                </div>
+            </div>
         </section>
     </main>
 
