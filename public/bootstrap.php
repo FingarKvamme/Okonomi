@@ -115,7 +115,7 @@ function db(): PDO
 function migrate(PDO $pdo): void
 {
     $statements = [
-        "CREATE TABLE IF NOT EXISTS users (
+        "CREATE TABLE IF NOT EXISTS okonomi_users (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             google_sub VARCHAR(255) NOT NULL UNIQUE,
             email VARCHAR(320) NOT NULL,
@@ -125,7 +125,7 @@ function migrate(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             INDEX idx_users_email (email)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS categories (
+        "CREATE TABLE IF NOT EXISTS okonomi_categories (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT UNSIGNED NOT NULL,
             kind ENUM('asset','liability','income','expense') NOT NULL,
@@ -135,9 +135,9 @@ function migrate(PDO $pdo): void
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_category (user_id, kind, name),
             INDEX idx_categories_user_kind (user_id, kind, active),
-            CONSTRAINT fk_categories_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            CONSTRAINT fk_categories_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS items (
+        "CREATE TABLE IF NOT EXISTS okonomi_items (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT UNSIGNED NOT NULL,
             category_id BIGINT UNSIGNED NOT NULL,
@@ -148,10 +148,10 @@ function migrate(PDO $pdo): void
             UNIQUE KEY uniq_item (user_id, kind, name),
             INDEX idx_items_user_kind (user_id, kind, active),
             INDEX idx_items_category (category_id),
-            CONSTRAINT fk_items_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_items_category FOREIGN KEY (category_id) REFERENCES categories(id) ON DELETE RESTRICT
+            CONSTRAINT fk_items_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_items_category FOREIGN KEY (category_id) REFERENCES okonomi_categories(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS balance_snapshots (
+        "CREATE TABLE IF NOT EXISTS okonomi_balance_snapshots (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT UNSIGNED NOT NULL,
             snapshot_date DATE NOT NULL,
@@ -161,19 +161,19 @@ function migrate(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_snapshot (user_id, snapshot_date),
             INDEX idx_snapshots_user_date (user_id, snapshot_date),
-            CONSTRAINT fk_snapshots_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+            CONSTRAINT fk_snapshots_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS balance_values (
+        "CREATE TABLE IF NOT EXISTS okonomi_balance_values (
             snapshot_id BIGINT UNSIGNED NOT NULL,
             item_id BIGINT UNSIGNED NOT NULL,
             amount_cents BIGINT NOT NULL,
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (snapshot_id, item_id),
             INDEX idx_balance_values_item (item_id),
-            CONSTRAINT fk_balance_values_snapshot FOREIGN KEY (snapshot_id) REFERENCES balance_snapshots(id) ON DELETE CASCADE,
-            CONSTRAINT fk_balance_values_item FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT
+            CONSTRAINT fk_balance_values_snapshot FOREIGN KEY (snapshot_id) REFERENCES okonomi_balance_snapshots(id) ON DELETE CASCADE,
+            CONSTRAINT fk_balance_values_item FOREIGN KEY (item_id) REFERENCES okonomi_items(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
-        "CREATE TABLE IF NOT EXISTS flow_entries (
+        "CREATE TABLE IF NOT EXISTS okonomi_flow_entries (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
             user_id BIGINT UNSIGNED NOT NULL,
             item_id BIGINT UNSIGNED NOT NULL,
@@ -183,8 +183,8 @@ function migrate(PDO $pdo): void
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_flow_user_date (user_id, entry_date),
             INDEX idx_flow_item (item_id),
-            CONSTRAINT fk_flow_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_flow_item FOREIGN KEY (item_id) REFERENCES items(id) ON DELETE RESTRICT
+            CONSTRAINT fk_flow_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_flow_item FOREIGN KEY (item_id) REFERENCES okonomi_items(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
@@ -266,7 +266,7 @@ function seed_default_categories(PDO $pdo, int $userId): void
     ];
 
     $stmt = $pdo->prepare(
-        "INSERT INTO categories (user_id, kind, name, is_default)
+        "INSERT INTO okonomi_categories (user_id, kind, name, is_default)
          VALUES (?, ?, ?, 1)
          ON DUPLICATE KEY UPDATE active = 1"
     );
