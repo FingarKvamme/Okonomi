@@ -72,7 +72,7 @@ jobs:
       - name: Install SFTP client
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq sshpass
+          sudo apt-get install -y -qq lftp
 
       - name: Deploy public directory over SFTP
         env:
@@ -109,21 +109,15 @@ jobs:
 
           TARGET="${SFTP_REMOTE_PATH%/}"
 
-          export SSHPASS="${SFTP_PASSWORD}"
-          sshpass -e sftp \
-            -b - \
-            -oBatchMode=no \
-            -oStrictHostKeyChecking=accept-new \
-            -oConnectTimeout=20 \
-            -P "${PORT}" \
-            "${SFTP_USER}@${HOST}" <<SFTP
-          -mkdir "${TARGET}"
-          cd "${TARGET}"
-          lcd public
-          put -r *
-          put .htaccess
+          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${HOST}:${PORT}" <<LFTP
+          set cmd:fail-exit yes
+          set sftp:auto-confirm yes
+          set net:max-retries 2
+          set net:timeout 20
+          mkdir -p "${TARGET}"
+          mirror -R --verbose --parallel=4 --delete ./public/ "${TARGET}"
           bye
-          SFTP
+          LFTP
 
       - name: Verify public page
         run: |
