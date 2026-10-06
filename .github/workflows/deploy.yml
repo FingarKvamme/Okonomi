@@ -119,7 +119,7 @@ jobs:
           bye
           LFTP
 
-      - name: Verify public page
+      - name: Verify public page and Google config
         run: |
           set -euo pipefail
           STATUS="$(curl --silent --show-error --retry 3 --retry-delay 2 \
@@ -129,5 +129,19 @@ jobs:
           echo "HTTP status: ${STATUS}"
           test "${STATUS}" = "200"
           grep -q "<title>Økonomi</title>" /tmp/okonomi.html
+
+          API_STATUS="$(curl --silent --show-error --retry 3 --retry-delay 2 \
+            --connect-timeout 10 --max-time 60 \
+            --output /tmp/okonomi-me.json --write-out "%{http_code}" \
+            "https://fundamentaleiendom.no/%C3%98konomi/api.php?action=me")"
+          echo "API status: ${API_STATUS}"
+          test "${API_STATUS}" = "200"
+          php -r '
+            $d = json_decode(file_get_contents("/tmp/okonomi-me.json"), true);
+            if (!is_array($d) || empty($d["googleClientId"])) {
+              fwrite(STDERR, "Live GOOGLE_CLIENT_ID is missing.\n");
+              exit(1);
+            }
+          '
 
 # Redeploy after GOOGLE_CLIENT_ID update
