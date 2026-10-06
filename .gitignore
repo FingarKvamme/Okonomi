@@ -1,7 +1,0 @@
-.DS_Store
-Thumbs.db
-*.xlsx
-*.xls
-*.json
-!package.json
-.env
