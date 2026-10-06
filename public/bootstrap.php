@@ -135,7 +135,7 @@ function migrate(PDO $pdo): void
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_category (user_id, kind, name),
             INDEX idx_categories_user_kind (user_id, kind, active),
-            CONSTRAINT fk_categories_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE
+            CONSTRAINT fk_okonomi_categories_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS okonomi_items (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -148,8 +148,8 @@ function migrate(PDO $pdo): void
             UNIQUE KEY uniq_item (user_id, kind, name),
             INDEX idx_items_user_kind (user_id, kind, active),
             INDEX idx_items_category (category_id),
-            CONSTRAINT fk_items_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_items_category FOREIGN KEY (category_id) REFERENCES okonomi_categories(id) ON DELETE RESTRICT
+            CONSTRAINT fk_okonomi_items_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_okonomi_items_category FOREIGN KEY (category_id) REFERENCES okonomi_categories(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS okonomi_balance_snapshots (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -161,7 +161,7 @@ function migrate(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             UNIQUE KEY uniq_snapshot (user_id, snapshot_date),
             INDEX idx_snapshots_user_date (user_id, snapshot_date),
-            CONSTRAINT fk_snapshots_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE
+            CONSTRAINT fk_okonomi_snapshots_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS okonomi_balance_values (
             snapshot_id BIGINT UNSIGNED NOT NULL,
@@ -170,8 +170,8 @@ function migrate(PDO $pdo): void
             updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             PRIMARY KEY (snapshot_id, item_id),
             INDEX idx_balance_values_item (item_id),
-            CONSTRAINT fk_balance_values_snapshot FOREIGN KEY (snapshot_id) REFERENCES okonomi_balance_snapshots(id) ON DELETE CASCADE,
-            CONSTRAINT fk_balance_values_item FOREIGN KEY (item_id) REFERENCES okonomi_items(id) ON DELETE RESTRICT
+            CONSTRAINT fk_okonomi_balance_values_snapshot FOREIGN KEY (snapshot_id) REFERENCES okonomi_balance_snapshots(id) ON DELETE CASCADE,
+            CONSTRAINT fk_okonomi_balance_values_item FOREIGN KEY (item_id) REFERENCES okonomi_items(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
         "CREATE TABLE IF NOT EXISTS okonomi_flow_entries (
             id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
@@ -183,8 +183,8 @@ function migrate(PDO $pdo): void
             created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_flow_user_date (user_id, entry_date),
             INDEX idx_flow_item (item_id),
-            CONSTRAINT fk_flow_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE,
-            CONSTRAINT fk_flow_item FOREIGN KEY (item_id) REFERENCES okonomi_items(id) ON DELETE RESTRICT
+            CONSTRAINT fk_okonomi_flow_user FOREIGN KEY (user_id) REFERENCES okonomi_users(id) ON DELETE CASCADE,
+            CONSTRAINT fk_okonomi_flow_item FOREIGN KEY (item_id) REFERENCES okonomi_items(id) ON DELETE RESTRICT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
     ];
 
