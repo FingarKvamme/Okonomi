@@ -107,7 +107,8 @@ jobs:
             PORT="${BASH_REMATCH[2]}"
           fi
 
-          TARGET="${SFTP_REMOTE_PATH%/}"
+          TARGET="${SFTP_REMOTE_PATH#/}"
+          TARGET="${TARGET%/}"
 
           lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${HOST}:${PORT}" <<LFTP
           set cmd:fail-exit yes
