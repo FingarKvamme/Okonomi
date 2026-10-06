@@ -211,7 +211,12 @@
 
     async function onFileSelected() {
         const file = $('#import-file')?.files?.[0];
-        if (!file) return;
+        const nameNode = $('#import-file-name');
+        if (!file) {
+            if (nameNode) nameNode.textContent = 'Ingen fil valgt';
+            return;
+        }
+        if (nameNode) nameNode.textContent = file.name;
 
         if (!window.XLSX) {
             toast('Excel-biblioteket kunne ikke lastes. Last siden på nytt.', 'error');
@@ -580,6 +585,7 @@
             return;
         }
 
+        $('#import-file-button').addEventListener('click', () => $('#import-file').click());
         $('#import-file').addEventListener('change', onFileSelected);
         $('#import-sheet').addEventListener('change', parseSelectedSheet);
         $('#import-kind').addEventListener('change', () => {
