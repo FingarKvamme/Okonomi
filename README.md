@@ -20,7 +20,7 @@ Legg også til:
 - `GOOGLE_CLIENT_ID` – OAuth 2.0 Web client ID fra Google Cloud Console. Autorisert JavaScript-origin må inkludere `https://fundamentaleiendom.no`.
 
 Valgfrie secrets dersom webhotellet ikke bruker standardverdiene:
-- `DB_HOST` (standard: `localhost`)
+- `DB_HOST` (standard: `mysql.coiurr9fr.service.one`)
 - `DB_PORT` (standard: `3306`)
 - `DB_USER` (standard: `coiurr9fr_db1394934`)
 
@@ -34,4 +34,4 @@ Workflowen lager `public/config.generated.php` under deploy. Denne filen committ
 
 ## Første oppstart
 
-Tabellene opprettes automatisk ved første databasekall. Første gang en Google-bruker logger inn, opprettes standardkategorier for eiendeler, gjeld, inntekter og utgifter.
+Økonomi bruker egne `okonomi_*`-tabeller i den delte databasen. Tabellene opprettes automatisk ved første databasekall. Første gang en Google-bruker logger inn, opprettes standardkategorier for eiendeler, gjeld, inntekter og utgifter.
