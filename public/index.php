@@ -22,7 +22,7 @@ $clientConfig = [
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.js?v=3" defer></script>
-    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/import.js?v=2" defer></script>
+    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/import.js?v=3" defer></script>
 </head>
 <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -221,9 +221,9 @@ $clientConfig = [
                         <div class="field import-file-field">
                             <span>Excel-fil</span>
                             <input id="import-file" class="visually-hidden-file" type="file" accept=".xlsx,.xls,.csv">
-                            <button id="import-file-button" class="button secondary import-file-button" type="button">
+                            <label for="import-file" class="button secondary import-file-button">
                                 Velg Excel-fil
-                            </button>
+                            </label>
                             <small id="import-file-name" class="import-file-name">Ingen fil valgt</small>
                         </div>
                         <label class="field">
