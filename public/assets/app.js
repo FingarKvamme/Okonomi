@@ -7,6 +7,8 @@
         csrf: null,
         categories: [],
         items: [],
+        googleInitialized: false,
+        loginFallbackTimer: null,
     };
 
     const $ = (selector) => document.querySelector(selector);
@@ -117,37 +119,75 @@
 
     function showLogin() {
         $('#app-view').hidden = true;
+        $('#auth-loading').hidden = true;
         $('#login-view').hidden = false;
+
+        const fallback = $('#login-fallback');
+        const status = $('#auto-login-status');
+        fallback.hidden = true;
+        status.hidden = false;
+
         if (!cfg.googleClientId) {
+            status.hidden = true;
             $('#login-config-warning').hidden = false;
+            fallback.hidden = true;
             return;
         }
 
+        let attempts = 0;
         const render = () => {
+            attempts += 1;
             if (!window.google?.accounts?.id) {
-                setTimeout(render, 120);
+                if (attempts < 80) {
+                    setTimeout(render, 100);
+                } else {
+                    status.hidden = true;
+                    fallback.hidden = false;
+                    toast('Google-innlogging kunne ikke lastes. Prøv å laste siden på nytt.', 'error');
+                }
                 return;
             }
-            google.accounts.id.initialize({
-                client_id: cfg.googleClientId,
-                callback: handleGoogleCredential,
-                auto_select: false,
-                cancel_on_tap_outside: true,
-            });
+
+            if (!state.googleInitialized) {
+                google.accounts.id.initialize({
+                    client_id: cfg.googleClientId,
+                    callback: handleGoogleCredential,
+                    auto_select: true,
+                    button_auto_select: true,
+                    use_fedcm_for_button: true,
+                    cancel_on_tap_outside: true,
+                    context: 'signin',
+                    itp_support: true,
+                });
+                state.googleInitialized = true;
+            }
+
             google.accounts.id.renderButton($('#google-signin'), {
                 type: 'standard',
-                theme: 'outline',
+                theme: 'filled_black',
                 size: 'large',
-                shape: 'pill',
+                shape: 'rectangular',
                 text: 'continue_with',
+                logo_alignment: 'left',
                 locale: 'nb',
-                width: 300,
+                width: 340,
             });
+
+            google.accounts.id.prompt();
+
+            clearTimeout(state.loginFallbackTimer);
+            state.loginFallbackTimer = setTimeout(() => {
+                if (state.user) return;
+                status.hidden = true;
+                fallback.hidden = false;
+            }, 1200);
         };
+
         render();
     }
 
     async function handleGoogleCredential(response) {
+        clearTimeout(state.loginFallbackTimer);
         try {
             const result = await api('googleLogin', {
                 method: 'POST',
@@ -164,6 +204,8 @@
     window.handleGoogleCredential = handleGoogleCredential;
 
     async function showApp() {
+        clearTimeout(state.loginFallbackTimer);
+        $('#auth-loading').hidden = true;
         $('#login-view').hidden = true;
         $('#app-view').hidden = false;
 
@@ -203,6 +245,9 @@
 
     async function logout() {
         try {
+            if (window.google?.accounts?.id) {
+                google.accounts.id.disableAutoSelect();
+            }
             await api('logout', { method: 'POST', body: {} });
             state.user = null;
             state.csrf = null;
