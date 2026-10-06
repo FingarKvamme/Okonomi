@@ -17,12 +17,12 @@ $clientConfig = [
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="theme-color" content="#f5f7f4">
     <title>Økonomi</title>
-    <link rel="stylesheet" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.css?v=1">
+    <link rel="stylesheet" href="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.css?v=2">
     <script>window.APP_CONFIG = <?= json_encode($clientConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG) ?>;</script>
     <script src="https://accounts.google.com/gsi/client" async defer></script>
     <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js" defer></script>
     <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/app.js?v=2" defer></script>
-    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/import.js?v=1" defer></script>
+    <script src="<?= htmlspecialchars($basePath, ENT_QUOTES, 'UTF-8') ?>/assets/import.js?v=2" defer></script>
 </head>
 <body>
     <div id="toast" class="toast" role="status" aria-live="polite"></div>
@@ -181,10 +181,14 @@ $clientConfig = [
                                 <option value="expense">Utgifter</option>
                             </select>
                         </label>
-                        <label class="field">
+                        <div class="field import-file-field">
                             <span>Excel-fil</span>
-                            <input id="import-file" type="file" accept=".xlsx,.xls,.csv">
-                        </label>
+                            <input id="import-file" class="visually-hidden-file" type="file" accept=".xlsx,.xls,.csv">
+                            <button id="import-file-button" class="button secondary import-file-button" type="button">
+                                Velg Excel-fil
+                            </button>
+                            <small id="import-file-name" class="import-file-name">Ingen fil valgt</small>
+                        </div>
                         <label class="field">
                             <span>Ark</span>
                             <select id="import-sheet" disabled></select>
