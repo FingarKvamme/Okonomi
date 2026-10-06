@@ -66,7 +66,7 @@ jobs:
       - name: Install SFTP client
         run: |
           sudo apt-get update
-          sudo apt-get install -y lftp
+          sudo apt-get install -y sshpass
 
       - name: Deploy public directory over SFTP
         env:
@@ -74,8 +74,10 @@ jobs:
           SFTP_HOST: ${{ secrets.SFTP_HOST }}
           SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
           SFTP_REMOTE_PATH: ${{ secrets.SFTP_REMOTE_PATH }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT || vars.SFTP_PORT }}
         run: |
           set -euo pipefail
+
           REMOTE_DIR="${SFTP_REMOTE_PATH#/}"
           REMOTE_DIR="${REMOTE_DIR%/}"
           : "${REMOTE_DIR:?SFTP_REMOTE_PATH resolves to an empty path}"
@@ -87,14 +89,25 @@ jobs:
           HOST="${HOST#ftp://}"
           HOST="${HOST#ftps://}"
           HOST="${HOST%%/*}"
+
+          PORT="${SFTP_PORT:-22}"
+          if [[ "${HOST}" =~ ^(.+):([0-9]+)$ ]]; then
+            HOST="${BASH_REMATCH[1]}"
+            PORT="${BASH_REMATCH[2]}"
+          fi
           : "${HOST:?SFTP_HOST resolves to an empty host}"
 
-          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${HOST}" <<LFTP
-          set cmd:fail-exit yes
-          set net:max-retries 2
-          set net:timeout 20
-          set sftp:auto-confirm yes
-          mkdir -p "${REMOTE_DIR}"
-          mirror --reverse --delete --verbose --parallel=4 ./public/ "${REMOTE_DIR}/"
+          export SSHPASS="${SFTP_PASSWORD}"
+          sshpass -e sftp \
+            -oBatchMode=no \
+            -oStrictHostKeyChecking=accept-new \
+            -oConnectTimeout=20 \
+            -P "${PORT}" \
+            "${SFTP_USER}@${HOST}" <<SFTP
+          -mkdir "${REMOTE_DIR}"
+          cd "${REMOTE_DIR}"
+          lcd public
+          put -r *
+          put .htaccess
           bye
-          LFTP
+          SFTP
