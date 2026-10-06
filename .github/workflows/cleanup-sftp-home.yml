@@ -1,0 +1,64 @@
+name: Cleanup accidental SFTP home files
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - '.github/workflows/cleanup-sftp-home.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cleanup:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install lftp
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq lftp
+
+      - name: Remove accidental home-directory copies
+        env:
+          SFTP_USER: ${{ secrets.SFTP_USER }}
+          SFTP_HOST: ${{ secrets.SFTP_HOST }}
+          SFTP_PASSWORD: ${{ secrets.SFTP_PASSWORD }}
+          SFTP_PORT: ${{ secrets.SFTP_PORT || vars.SFTP_PORT }}
+        run: |
+          set -euo pipefail
+          HOST="$(printf '%s' "${SFTP_HOST}" | tr -d '\r\n\t ')"
+          HOST="${HOST#\"}"
+          HOST="${HOST%\"}"
+          HOST="${HOST#\'}"
+          HOST="${HOST%\'}"
+          HOST="${HOST#SFTP_HOST=}"
+          HOST="${HOST#sftp://}"
+          HOST="${HOST#ssh://}"
+          HOST="${HOST#https://}"
+          HOST="${HOST#http://}"
+          HOST="${HOST#ftp://}"
+          HOST="${HOST#ftps://}"
+          HOST="${HOST%%/*}"
+          HOST="${HOST##*@}"
+          HOST="${HOST%%\?*}"
+          HOST="${HOST%%\#*}"
+          PORT="${SFTP_PORT:-22}"
+          if [[ "${HOST}" =~ ^(.+):([0-9]+)$ ]]; then
+            HOST="${BASH_REMATCH[1]}"
+            PORT="${BASH_REMATCH[2]}"
+          fi
+
+          lftp -u "${SFTP_USER},${SFTP_PASSWORD}" "sftp://${HOST}:${PORT}" <<'LFTP'
+          set cmd:fail-exit no
+          set sftp:auto-confirm yes
+          rm -f api.php
+          rm -f bootstrap.php
+          rm -f config.generated.php
+          rm -f index.php
+          rm -f .htaccess
+          rm -f assets/app.css
+          rm -f assets/app.js
+          rmdir assets
+          bye
+          LFTP
